@@ -1,10 +1,9 @@
 .room-container {
-  /* padding: 20px; */
   font-family: 'Segoe UI', sans-serif;
-  /* background-color: black; */
   background: #020024;
-/* background: linear-gradient(90deg,rgba(2, 0, 36, 1) 0%, rgba(9, 9, 121, 1) 35%, rgba(0, 212, 255, 1) 100%); */
   min-height: 100vh;
+  padding-bottom: 100px; /* Reserve space for footer */
+  overflow-x: hidden;
 }
 
 .room-title {
@@ -12,41 +11,42 @@
   text-align: center;
   color: #ccc;
   font-size: 24px;
-  margin-bottom: 20px;
+  margin: 20px 0;
+}
+
+/* --- Layout: Videos and Chat --- */
+.both {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 0 10px;
 }
 
 .video-container {
   display: flex;
-  flex-grow: 1;
   flex-wrap: wrap;
   gap: 20px;
-  margin-bottom: 20px;
   justify-content: center;
-
 }
 
 video {
   border: 2px solid #ccc;
   border-radius: 10px;
-  width: 400px;
+  width: 100%;
+  max-width: 400px;
   height: auto;
-  align-items: center;
-}
-.both {
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
 }
 
-.chat-container { 
-  width: 250px;
-  margin-right: 20px;
+/* --- Chat --- */
+.chat-container {
+  width: 300px;
+  max-width: 90vw;
   height: 500px;
-  /* background-color: #fff; */
   background: white;
   border: 1px solid #ccc;
   padding: 10px;
-  /* text-align: center; */
   border-radius: 10px;
 }
 
@@ -62,20 +62,21 @@ video {
 
 .chat-messages p {
   margin: 5px 0;
+  word-wrap: break-word;
 }
 
 .chat-input {
   display: flex;
   gap: 10px;
-
+  flex-wrap: wrap;
 }
 
 .chat-input input {
   flex: 1;
   padding: 10px;
-  border: 2px solid #007BFF; /* bright blue border for visibility */
+  border: 2px solid #007BFF;
   border-radius: 4px;
-  font-size: 10px;
+  font-size: 14px;
   background-color: rgb(207, 205, 205);
   color: black;
 }
@@ -83,64 +84,65 @@ video {
 .chat-input button {
   padding: 5px 10px;
   cursor: pointer;
-  border:#007BFF solid 2px; 
+  border: #007BFF solid 2px;
   background-color: lightskyblue;
   border-radius: 4px;
   font-size: 14px;
   transition: background-color 0.2s ease;
 }
 
-/* Hover effect */
 .chat-input button:hover {
   background-color: deepskyblue;
   color: white;
   border: #020024 solid 2px;
 }
 
+/* --- Footer Controls --- */
 .controls-bar {
   position: fixed;
-  width: 76%;
   bottom: 0;
   left: 0;
   right: 0;
+  z-index: 100;
   display: flex;
   justify-content: center;
-  gap: 20px;
+  padding: 10px;
+  background-color: transparent;
 }
 
-.footer{
-  width: 76%;
+.footer {
+  width: 100%;
+  max-width: 900px;
   display: flex;
   justify-content: center;
   gap: 20px;
   padding: 15px 0;
   border: 2px solid white;
   border-bottom: none;
-  background: #0f0c29; 
+  background: #0f0c29;
   border-radius: 20px 20px 0 0;
+  flex-wrap: wrap;
 }
 
-.controls-bar button {
-  background: #0f0c29;
-  background: -webkit-linear-gradient(to left, #24243e, #302b63, #0f0c29);
+.footer button {
   background: linear-gradient(to left, #24243e, #302b63, #0f0c29);
   color: white;
-  border: whitesmoke;
+  border: 1px solid whitesmoke;
   padding: 10px 20px;
   font-size: 1rem;
   border-radius: 6px;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
+  min-width: 120px;
 }
 
-.controls-bar button:hover {
+.footer button:hover {
   background: white;
-  border: #020024;
   color: black;
+  border: 1px solid #020024;
 }
 
-
-
+/* --- Medium Devices (Tablets) --- */
 @media (max-width: 1024px) {
   .both {
     flex-direction: column;
@@ -149,19 +151,20 @@ video {
 
   .chat-container {
     width: 90%;
-    margin-right: 0;
-    margin-bottom: 20px;
+    height: 450px;
   }
 
-  .video-container {
-    justify-content: center;
+  .chat-messages {
+    height: 340px;
   }
 
-  .controls-bar, .footer {
-    width: 90%;
+  .controls-bar,
+  .footer {
+    width: 100%;
   }
 }
 
+/* --- Small Devices (Mobile) --- */
 @media (max-width: 768px) {
   .room-title {
     font-size: 20px;
@@ -177,7 +180,7 @@ video {
 
   .chat-input {
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
   }
 
   .chat-input input,
@@ -185,30 +188,37 @@ video {
     width: 100%;
   }
 
-  .controls-bar {
+  .footer {
     flex-direction: column;
-    align-items: center;
     gap: 10px;
+    padding: 10px;
+    border-radius: 10px 10px 0 0;
   }
 
-  .controls-bar button {
-    width: 100%;
+  .footer button {
+    width: 90%;
   }
 
   video {
-    width: 100%;
-    max-width: 100%;
+    width: 90vw;
   }
 }
 
+/* --- Extra Small Devices --- */
 @media (max-width: 480px) {
   .room-title {
     font-size: 18px;
   }
 
-  .footer {
-    flex-direction: column;
-    align-items: center;
-    padding: 10px;
+  .chat-container {
+    height: 350px;
+  }
+
+  .chat-messages {
+    height: 260px;
+  }
+
+  .footer button {
+    font-size: 0.9rem;
   }
 }
