@@ -2,8 +2,9 @@
   font-family: 'Segoe UI', sans-serif;
   background: #020024;
   min-height: 100vh;
-  padding-bottom: 100px; /* Reserve space for footer */
-  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
 }
 
 .room-title {
@@ -11,17 +12,18 @@
   text-align: center;
   color: #ccc;
   font-size: 24px;
-  margin: 20px 0;
+  margin-bottom: 20px;
 }
 
-/* --- Layout: Videos and Chat --- */
 .both {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
   align-items: flex-start;
+  justify-content: flex-start;
+  flex: 1;
+  flex-wrap: wrap;
+  overflow-y: auto;
   gap: 20px;
-  padding: 0 10px;
+  padding: 0 20px;
 }
 
 .video-container {
@@ -29,25 +31,26 @@
   flex-wrap: wrap;
   gap: 20px;
   justify-content: center;
+  flex: 1;
+  min-width: 250px;
 }
 
 video {
   border: 2px solid #ccc;
   border-radius: 10px;
-  width: 100%;
-  max-width: 400px;
+  width: 400px;
   height: auto;
 }
 
-/* --- Chat --- */
 .chat-container {
-  width: 300px;
-  max-width: 90vw;
+  width: 250px;
   height: 500px;
   background: white;
   border: 1px solid #ccc;
   padding: 10px;
   border-radius: 10px;
+  overflow-y: auto;
+  flex-shrink: 0;
 }
 
 .chat-messages {
@@ -62,7 +65,6 @@ video {
 
 .chat-messages p {
   margin: 5px 0;
-  word-wrap: break-word;
 }
 
 .chat-input {
@@ -76,7 +78,7 @@ video {
   padding: 10px;
   border: 2px solid #007BFF;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 10px;
   background-color: rgb(207, 205, 205);
   color: black;
 }
@@ -97,22 +99,22 @@ video {
   border: #020024 solid 2px;
 }
 
-/* --- Footer Controls --- */
 .controls-bar {
-  position: fixed;
+  position: sticky;
   bottom: 0;
   left: 0;
   right: 0;
-  z-index: 100;
   display: flex;
   justify-content: center;
+  gap: 20px;
+  width: 100%;
+  background: #0f0c29;
   padding: 10px;
-  background-color: transparent;
+  z-index: 1000;
 }
 
 .footer {
   width: 100%;
-  max-width: 900px;
   display: flex;
   justify-content: center;
   gap: 20px;
@@ -124,25 +126,25 @@ video {
   flex-wrap: wrap;
 }
 
-.footer button {
+.controls-bar button {
   background: linear-gradient(to left, #24243e, #302b63, #0f0c29);
   color: white;
-  border: 1px solid whitesmoke;
+  border: whitesmoke;
   padding: 10px 20px;
   font-size: 1rem;
   border-radius: 6px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  min-width: 120px;
+  transition: background-color 0.2s ease;
 }
 
-.footer button:hover {
+.controls-bar button:hover {
   background: white;
+  border: #020024;
   color: black;
-  border: 1px solid #020024;
 }
 
-/* --- Medium Devices (Tablets) --- */
+/* RESPONSIVE BREAKPOINTS */
+
 @media (max-width: 1024px) {
   .both {
     flex-direction: column;
@@ -151,36 +153,43 @@ video {
 
   .chat-container {
     width: 90%;
-    height: 450px;
+    margin-bottom: 20px;
+    height: auto;
+    max-height: 400px;
   }
 
   .chat-messages {
-    height: 340px;
+    height: 250px;
+  }
+
+  .video-container {
+    justify-content: center;
   }
 
   .controls-bar,
   .footer {
     width: 100%;
+    flex-wrap: wrap;
   }
 }
 
-/* --- Small Devices (Mobile) --- */
 @media (max-width: 768px) {
   .room-title {
     font-size: 20px;
   }
 
   .chat-container {
-    height: 400px;
+    width: 90%;
+    max-height: 350px;
   }
 
   .chat-messages {
-    height: 300px;
+    max-height: 230px;
   }
 
   .chat-input {
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
   }
 
   .chat-input input,
@@ -188,37 +197,43 @@ video {
     width: 100%;
   }
 
-  .footer {
+  .controls-bar {
     flex-direction: column;
+    align-items: center;
     gap: 10px;
-    padding: 10px;
-    border-radius: 10px 10px 0 0;
   }
 
-  .footer button {
+  .controls-bar button {
     width: 90%;
   }
 
   video {
-    width: 90vw;
+    width: 100%;
+    max-width: 100%;
   }
 }
 
-/* --- Extra Small Devices --- */
 @media (max-width: 480px) {
   .room-title {
     font-size: 18px;
   }
 
+  .footer {
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+  }
+
   .chat-container {
-    height: 350px;
+    width: 95%;
   }
 
   .chat-messages {
-    height: 260px;
+    max-height: 200px;
   }
 
-  .footer button {
-    font-size: 0.9rem;
+  video {
+    width: 100%;
+    max-width: 100%;
   }
 }

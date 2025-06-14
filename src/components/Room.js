@@ -16,104 +16,79 @@ export default function Room() {
   const [message, setMessage] = useState('');
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
-  const [videoDevices, setVideoDevices] = useState([]);
-  const [selectedDeviceIndex, setSelectedDeviceIndex] = useState(0);
 
-  // Get available camera devices and user media
   useEffect(() => {
     const getMedia = async () => {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoInputs = devices.filter(device => device.kind === 'videoinput');
-      setVideoDevices(videoInputs);
-
-      const defaultIndex = videoInputs.length > 1 ? videoInputs.length - 1 : 0;
-      setSelectedDeviceIndex(defaultIndex);
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: { exact: videoInputs[defaultIndex]?.deviceId } },
-        audio: true,
-      });
-
-      localVideo.current.srcObject = stream;
-
-      socket.emit('join-room', { roomId, username });
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+        localVideo.current.srcObject = stream;
+        socket.emit('join-room', { roomId, username });
+      } catch (err) {
+        console.error('Media Error:', err);
+        alert('Camera/Mic access denied.');
+      }
     };
-
     getMedia();
   }, [roomId, username]);
 
-  // Switch camera when device index changes
-  useEffect(() => {
-    const switchCamera = async () => {
-      if (videoDevices.length === 0) return;
+  const createPeerConnection = () => {
+    const config = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        {
+          urls: 'turn:openrelay.metered.ca:80',
+          username: 'openrelayproject',
+          credential: 'openrelayproject',
+        },
+      ],
+    };
+    const peer = new RTCPeerConnection(config);
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: { exact: videoDevices[selectedDeviceIndex]?.deviceId } },
-        audio: true,
-      });
-
-      const videoTrack = stream.getVideoTracks()[0];
-      const audioTrack = stream.getAudioTracks()[0];
-      const localStream = localVideo.current.srcObject;
-
-      localStream.getTracks().forEach(track => track.stop());
-      localVideo.current.srcObject = stream;
-
-      if (peerRef.current) {
-        const senders = peerRef.current.getSenders();
-        const videoSender = senders.find(s => s.track?.kind === 'video');
-        const audioSender = senders.find(s => s.track?.kind === 'audio');
-        if (videoSender) videoSender.replaceTrack(videoTrack);
-        if (audioSender) audioSender.replaceTrack(audioTrack);
+    peer.onicecandidate = (e) => {
+      if (e.candidate) {
+        socket.emit('signal', {
+          to: peerRef.current.remoteId,
+          data: { candidate: e.candidate },
+        });
       }
     };
 
-    switchCamera();
-  }, [selectedDeviceIndex, videoDevices]);
-
-  // Peer connection and signaling
-  useEffect(() => {
-    const iceConfig = {
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    peer.ontrack = (e) => {
+      remoteVideo.current.srcObject = e.streams[0];
     };
 
+    return peer;
+  };
+
+  useEffect(() => {
     socket.on('user-joined', async ({ id }) => {
-      peerRef.current = new RTCPeerConnection(iceConfig);
-      localVideo.current.srcObject.getTracks().forEach(track => {
+      peerRef.current = createPeerConnection();
+      peerRef.current.remoteId = id;
+
+      localVideo.current.srcObject.getTracks().forEach((track) => {
         peerRef.current.addTrack(track, localVideo.current.srcObject);
       });
 
-      peerRef.current.onicecandidate = e => {
-        if (e.candidate) {
-          socket.emit('signal', { to: id, data: { candidate: e.candidate } });
-        }
-      };
-
-      peerRef.current.ontrack = e => {
-        remoteVideo.current.srcObject = e.streams[0];
-      };
-
       const offer = await peerRef.current.createOffer();
       await peerRef.current.setLocalDescription(offer);
-      socket.emit('signal', { to: id, data: { sdp: offer } });
+
+      socket.emit('signal', {
+        to: id,
+        data: { sdp: offer },
+      });
     });
 
     socket.on('signal', async ({ from, data }) => {
       if (!peerRef.current) {
-        peerRef.current = new RTCPeerConnection(iceConfig);
-        localVideo.current.srcObject.getTracks().forEach(track => {
+        peerRef.current = createPeerConnection();
+        peerRef.current.remoteId = from;
+
+        localVideo.current.srcObject.getTracks().forEach((track) => {
           peerRef.current.addTrack(track, localVideo.current.srcObject);
         });
-
-        peerRef.current.onicecandidate = e => {
-          if (e.candidate) {
-            socket.emit('signal', { to: from, data: { candidate: e.candidate } });
-          }
-        };
-
-        peerRef.current.ontrack = e => {
-          remoteVideo.current.srcObject = e.streams[0];
-        };
       }
 
       if (data.sdp) {
@@ -121,23 +96,24 @@ export default function Room() {
         if (data.sdp.type === 'offer') {
           const answer = await peerRef.current.createAnswer();
           await peerRef.current.setLocalDescription(answer);
-          socket.emit('signal', { to: from, data: { sdp: answer } });
+          socket.emit('signal', {
+            to: from,
+            data: { sdp: answer },
+          });
         }
       }
 
       if (data.candidate) {
-        const waitForRemote = async () => {
-          while (!peerRef.current.remoteDescription) {
-            await new Promise(res => setTimeout(res, 100));
-          }
+        try {
           await peerRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
-        };
-        waitForRemote();
+        } catch (err) {
+          console.error('ICE Candidate Error:', err);
+        }
       }
     });
 
     socket.on('chat-message', ({ username, message }) => {
-      setChat(prev => [...prev, { username, message }]);
+      setChat((prev) => [...prev, { username, message }]);
     });
 
     return () => {
@@ -148,18 +124,17 @@ export default function Room() {
   }, [roomId, username]);
 
   const sendMessage = () => {
-    if (message.trim() === '') return;
-    socket.emit('chat-message', { roomId, username, message });
-    setChat(prev => [...prev, { username, message }]);
-    setMessage('');
+    if (message.trim()) {
+      socket.emit('chat-message', { roomId, username, message });
+      setChat((prev) => [...prev, { username, message }]);
+      setMessage('');
+    }
   };
 
   const toggleMute = () => {
     const stream = localVideo.current.srcObject;
     if (stream) {
-      stream.getAudioTracks().forEach(track => {
-        track.enabled = isMuted;
-      });
+      stream.getAudioTracks().forEach((track) => (track.enabled = isMuted));
       setIsMuted(!isMuted);
     }
   };
@@ -167,16 +142,9 @@ export default function Room() {
   const toggleCamera = () => {
     const stream = localVideo.current.srcObject;
     if (stream) {
-      stream.getVideoTracks().forEach(track => {
-        track.enabled = isCameraOff;
-      });
+      stream.getVideoTracks().forEach((track) => (track.enabled = isCameraOff));
       setIsCameraOff(!isCameraOff);
     }
-  };
-
-  const switchCamera = () => {
-    if (videoDevices.length <= 1) return;
-    setSelectedDeviceIndex((prev) => (prev + 1) % videoDevices.length);
   };
 
   const leaveRoom = () => {
@@ -187,7 +155,7 @@ export default function Room() {
 
     const stream = localVideo.current.srcObject;
     if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+      stream.getTracks().forEach((track) => track.stop());
     }
 
     socket.emit('leave-room', { roomId, username });
@@ -208,16 +176,16 @@ export default function Room() {
           <h3 style={{ textAlign: 'center' }}>Chat</h3>
           <div className="chat-messages">
             {chat.map((msg, i) => (
-              <p key={i}><b>{msg.username === username ? 'Me' : msg.username}:</b> {msg.message}</p>
+              <p key={i}>
+                <b>{msg.username === username ? 'Me' : msg.username}:</b> {msg.message}
+              </p>
             ))}
           </div>
           <div className="chat-input">
             <input
               value={message}
-              onChange={e => setMessage(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') sendMessage();
-              }}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
               placeholder="Type a message..."
             />
             <button onClick={sendMessage}>Send</button>
@@ -229,7 +197,6 @@ export default function Room() {
         <div className="footer">
           <button onClick={toggleMute}>{isMuted ? 'Unmute' : 'Mute'}</button>
           <button onClick={toggleCamera}>{isCameraOff ? 'Turn Camera On' : 'Turn Camera Off'}</button>
-          <button onClick={switchCamera}>Switch Camera</button>
           <button onClick={leaveRoom}>Leave Room</button>
         </div>
       </div>
