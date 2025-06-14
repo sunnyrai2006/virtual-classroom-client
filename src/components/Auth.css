@@ -1,0 +1,111 @@
+/* Full-page gradient background */
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(90deg, rgba(2, 0, 36, 1) 0%, rgba(9, 9, 121, 1) 35%, rgba(0, 212, 255, 1) 100%);
+  background-size: cover;
+  background-position: center;
+  padding: 40px;
+  box-sizing: border-box;
+}
+
+/* Login form box */
+.auth-container form {
+  background-color: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  padding: 40px;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 400px; /* Max width for large screens */
+  color: white;
+  box-sizing: border-box;
+}
+
+/* Heading */
+.auth-container h2 {
+  text-align: center;
+  color: #fff;
+  margin-bottom: 20px;
+  font-size: 2rem;
+}
+
+/* Input fields */
+.auth-container input {
+  margin: 10px 0;
+  padding: 14px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+/* Submit button */
+.auth-container button {
+  margin-top: 10px;
+  padding: 14px;
+  border: none;
+  background-color: #ffffff;
+  color: #2a5298;
+  font-weight: bold;
+  font-size: 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.auth-container button:hover {
+  background-color: #dce3f0;
+}
+
+/* Back link */
+.auth-container p {
+  margin-top: 20px;
+  text-align: center;
+  color: #f0f0f0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* Medium screen (tablets) */
+@media (max-width: 768px) {
+  .auth-container form {
+    padding: 30px;
+    max-width: 80%;
+  }
+
+  .auth-container h2 {
+    font-size: 1.6rem;
+  }
+
+  .auth-container input,
+  .auth-container button {
+    font-size: 0.95rem;
+    padding: 12px;
+  }
+}
+
+/* Small screen (phones) */
+@media (max-width: 480px) {
+  .auth-container {
+    padding: 20px;
+  }
+
+  .auth-container form {
+    padding: 20px;
+    max-width: 100%;
+  }
+
+  .auth-container h2 {
+    font-size: 1.3rem;
+  }
+
+  .auth-container input,
+  .auth-container button {
+    font-size: 0.9rem;
+    padding: 10px;
+  }
+}
