@@ -10,110 +10,94 @@ export default function Room() {
 
   const localVideo = useRef();
   const remoteVideo = useRef();
-  const peerRef = useRef();
-
+  const peerRef = useRef(null);
+  const [stream, setStream] = useState(null);
+  const [devices, setDevices] = useState([]);
+  const [currentDeviceIndex, setCurrentDeviceIndex] = useState(0);
   const [chat, setChat] = useState([]);
   const [message, setMessage] = useState('');
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
 
-  useEffect(() => {
-    const getMedia = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        });
-        localVideo.current.srcObject = stream;
-        socket.emit('join-room', { roomId, username });
-      } catch (err) {
-        console.error('Media Error:', err);
-        alert('Camera/Mic access denied.');
-      }
-    };
-    getMedia();
-  }, [roomId, username]);
+  // Get video devices
+  const getCameras = async () => {
+    const allDevices = await navigator.mediaDevices.enumerateDevices();
+    const videoDevices = allDevices.filter(device => device.kind === 'videoinput');
+    setDevices(videoDevices);
+    return videoDevices;
+  };
 
-  const createPeerConnection = () => {
-    const config = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        {
-          urls: 'turn:openrelay.metered.ca:80',
-          username: 'openrelayproject',
-          credential: 'openrelayproject',
-        },
-      ],
+  const startStream = async (deviceId = null) => {
+    const constraints = {
+      video: deviceId ? { deviceId: { exact: deviceId } } : true,
+      audio: true
     };
-    const peer = new RTCPeerConnection(config);
 
-    peer.onicecandidate = (e) => {
+    const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+    localVideo.current.srcObject = newStream;
+    setStream(newStream);
+    return newStream;
+  };
+
+  const initPeer = async (otherId, isInitiator) => {
+    peerRef.current = new RTCPeerConnection();
+
+    // Add tracks
+    stream?.getTracks().forEach(track => {
+      peerRef.current.addTrack(track, stream);
+    });
+
+    // Handle ICE
+    peerRef.current.onicecandidate = e => {
       if (e.candidate) {
-        socket.emit('signal', {
-          to: peerRef.current.remoteId,
-          data: { candidate: e.candidate },
-        });
+        socket.emit('signal', { to: otherId, data: { candidate: e.candidate } });
       }
     };
 
-    peer.ontrack = (e) => {
+    // Set remote stream
+    peerRef.current.ontrack = e => {
       remoteVideo.current.srcObject = e.streams[0];
     };
 
-    return peer;
+    if (isInitiator) {
+      const offer = await peerRef.current.createOffer();
+      await peerRef.current.setLocalDescription(offer);
+      socket.emit('signal', { to: otherId, data: { sdp: offer } });
+    }
   };
 
   useEffect(() => {
+    (async () => {
+      await getCameras();
+      const camStream = await startStream();
+      socket.emit('join-room', { roomId, username });
+    })();
+  }, []);
+
+  useEffect(() => {
     socket.on('user-joined', async ({ id }) => {
-      peerRef.current = createPeerConnection();
-      peerRef.current.remoteId = id;
-
-      localVideo.current.srcObject.getTracks().forEach((track) => {
-        peerRef.current.addTrack(track, localVideo.current.srcObject);
-      });
-
-      const offer = await peerRef.current.createOffer();
-      await peerRef.current.setLocalDescription(offer);
-
-      socket.emit('signal', {
-        to: id,
-        data: { sdp: offer },
-      });
+      await initPeer(id, true);
     });
 
     socket.on('signal', async ({ from, data }) => {
-      if (!peerRef.current) {
-        peerRef.current = createPeerConnection();
-        peerRef.current.remoteId = from;
-
-        localVideo.current.srcObject.getTracks().forEach((track) => {
-          peerRef.current.addTrack(track, localVideo.current.srcObject);
-        });
-      }
+      if (!peerRef.current) await initPeer(from, false);
 
       if (data.sdp) {
         await peerRef.current.setRemoteDescription(new RTCSessionDescription(data.sdp));
         if (data.sdp.type === 'offer') {
           const answer = await peerRef.current.createAnswer();
           await peerRef.current.setLocalDescription(answer);
-          socket.emit('signal', {
-            to: from,
-            data: { sdp: answer },
-          });
+          socket.emit('signal', { to: from, data: { sdp: answer } });
         }
       }
 
       if (data.candidate) {
-        try {
-          await peerRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
-        } catch (err) {
-          console.error('ICE Candidate Error:', err);
-        }
+        await peerRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
       }
     });
 
     socket.on('chat-message', ({ username, message }) => {
-      setChat((prev) => [...prev, { username, message }]);
+      setChat(prev => [...prev, { username, message }]);
     });
 
     return () => {
@@ -121,43 +105,47 @@ export default function Room() {
       socket.off('signal');
       socket.off('chat-message');
     };
-  }, [roomId, username]);
-
-  const sendMessage = () => {
-    if (message.trim()) {
-      socket.emit('chat-message', { roomId, username, message });
-      setChat((prev) => [...prev, { username, message }]);
-      setMessage('');
-    }
-  };
+  }, [stream]);
 
   const toggleMute = () => {
-    const stream = localVideo.current.srcObject;
     if (stream) {
-      stream.getAudioTracks().forEach((track) => (track.enabled = isMuted));
+      stream.getAudioTracks().forEach(track => track.enabled = isMuted);
       setIsMuted(!isMuted);
     }
   };
 
   const toggleCamera = () => {
-    const stream = localVideo.current.srcObject;
     if (stream) {
-      stream.getVideoTracks().forEach((track) => (track.enabled = isCameraOff));
+      stream.getVideoTracks().forEach(track => track.enabled = isCameraOff);
       setIsCameraOff(!isCameraOff);
     }
   };
 
-  const leaveRoom = () => {
+  const switchCamera = async () => {
+    const newIndex = (currentDeviceIndex + 1) % devices.length;
+    const newDevice = devices[newIndex];
+    if (!newDevice) return;
+
+    const newStream = await startStream(newDevice.deviceId);
+    setCurrentDeviceIndex(newIndex);
+
+    // Replace track in peer connection
     if (peerRef.current) {
-      peerRef.current.close();
-      peerRef.current = null;
+      const sender = peerRef.current.getSenders().find(s => s.track.kind === 'video');
+      if (sender) sender.replaceTrack(newStream.getVideoTracks()[0]);
     }
+  };
 
-    const stream = localVideo.current.srcObject;
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-    }
+  const sendMessage = () => {
+    if (message.trim() === '') return;
+    socket.emit('chat-message', { roomId, username, message });
+    setChat(prev => [...prev, { username, message }]);
+    setMessage('');
+  };
 
+  const leaveRoom = () => {
+    if (peerRef.current) peerRef.current.close();
+    if (stream) stream.getTracks().forEach(track => track.stop());
     socket.emit('leave-room', { roomId, username });
     window.location.href = '/';
   };
@@ -176,16 +164,14 @@ export default function Room() {
           <h3 style={{ textAlign: 'center' }}>Chat</h3>
           <div className="chat-messages">
             {chat.map((msg, i) => (
-              <p key={i}>
-                <b>{msg.username === username ? 'Me' : msg.username}:</b> {msg.message}
-              </p>
+              <p key={i}><b>{msg.username === username ? 'Me' : msg.username}:</b> {msg.message}</p>
             ))}
           </div>
           <div className="chat-input">
             <input
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+              onChange={e => setMessage(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && sendMessage()}
               placeholder="Type a message..."
             />
             <button onClick={sendMessage}>Send</button>
@@ -197,6 +183,7 @@ export default function Room() {
         <div className="footer">
           <button onClick={toggleMute}>{isMuted ? 'Unmute' : 'Mute'}</button>
           <button onClick={toggleCamera}>{isCameraOff ? 'Turn Camera On' : 'Turn Camera Off'}</button>
+          <button onClick={switchCamera}>Switch Camera</button>
           <button onClick={leaveRoom}>Leave Room</button>
         </div>
       </div>
