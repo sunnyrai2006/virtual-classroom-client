@@ -16,59 +16,27 @@ export default function Room() {
   const [message, setMessage] = useState('');
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
-  const [videoDevices, setVideoDevices] = useState([]);
-  const [selectedDeviceIndex, setSelectedDeviceIndex] = useState(0);
 
   useEffect(() => {
     const getMedia = async () => {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoInputs = devices.filter(device => device.kind === 'videoinput');
-      setVideoDevices(videoInputs);
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true, // No deviceId filter
+          audio: true,
+        });
 
-      const defaultIndex = videoInputs.length > 1 ? videoInputs.length - 1 : 0;
-      setSelectedDeviceIndex(defaultIndex);
+        console.log('Stream obtained:', stream);
+        localVideo.current.srcObject = stream;
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: { exact: videoInputs[defaultIndex]?.deviceId } },
-        audio: true,
-      });
-
-      localVideo.current.srcObject = stream;
-
-      socket.emit('join-room', { roomId, username });
-    };
-    getMedia();
-  }, [roomId, username]);
-
-  useEffect(() => {
-    const switchCamera = async () => {
-      if (videoDevices.length === 0) return;
-
-      const deviceId = videoDevices[selectedDeviceIndex]?.deviceId;
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: { exact: deviceId } },
-        audio: true,
-      });
-
-      const videoTrack = stream.getVideoTracks()[0];
-      const audioTrack = stream.getAudioTracks()[0];
-      const localStream = localVideo.current.srcObject;
-
-      localStream.getTracks().forEach(track => track.stop());
-      localVideo.current.srcObject = stream;
-
-      if (peerRef.current) {
-        const senders = peerRef.current.getSenders();
-        const videoSender = senders.find(s => s.track?.kind === 'video');
-        const audioSender = senders.find(s => s.track?.kind === 'audio');
-        if (videoSender) videoSender.replaceTrack(videoTrack);
-        if (audioSender) audioSender.replaceTrack(audioTrack);
+        socket.emit('join-room', { roomId, username });
+      } catch (err) {
+        console.error('Error accessing media devices:', err);
+        alert('Failed to access camera or microphone.');
       }
     };
 
-    switchCamera();
-  }, [selectedDeviceIndex, videoDevices]);
+    getMedia();
+  }, [roomId, username]);
 
   useEffect(() => {
     socket.on('user-joined', async ({ id }) => {
@@ -168,11 +136,6 @@ export default function Room() {
     }
   };
 
-  const handleSwitchCamera = () => {
-    if (videoDevices.length <= 1) return;
-    setSelectedDeviceIndex((prevIndex) => (prevIndex + 1) % videoDevices.length);
-  };
-
   const leaveRoom = () => {
     if (peerRef.current) {
       peerRef.current.close();
@@ -223,7 +186,6 @@ export default function Room() {
         <div className='footer'>
           <button onClick={toggleMute}>{isMuted ? 'Unmute' : 'Mute'}</button>
           <button onClick={toggleCamera}>{isCameraOff ? 'Turn Camera On' : 'Turn Camera Off'}</button>
-          <button onClick={handleSwitchCamera}>Switch Camera</button>
           <button onClick={leaveRoom}>Leave Room</button>
         </div>
       </div>
